@@ -196,7 +196,7 @@ class DIAL2(RiskModel):
         if patient.region not in self.supported_regions:
             raise ValueError(f"Region '{patient.region}' not supported. Options: {self.supported_regions}")
             
-        required_attrs = ["age_diabetes_diagnosis"]
+        required_attrs = ["diabetes_age"]
         for attr in required_attrs:
             if not hasattr(patient, attr) or getattr(patient, attr) is None:
                 raise ValueError(f"DIAL2 requires '{attr}'")
@@ -220,7 +220,7 @@ class DIAL2(RiskModel):
         t_hdl = (patient.hdl_cholesterol - 1.3) / 0.4
         t_hba1c = (patient.hba1c - 55) / 16 # Assuming hba1c in mmol/mol
         
-        age_onset = getattr(patient, "age_diabetes_diagnosis")
+        age_onset = getattr(patient, "diabetes_age")
         t_onset = (age_onset - 58) / 12
         
         smoking = float(patient.smoking)
@@ -346,7 +346,7 @@ class DIAL2(RiskModel):
         """
         required = ["age", "sex", "region", "systolic_bp", "smoking", 
                     "total_cholesterol", "hdl_cholesterol", "egfr", 
-                    "hba1c", "age_diabetes_diagnosis"]
+                    "hba1c", "diabetes_age"]
         
         if not set(required).issubset(df.columns):
             raise ValueError(f"Missing columns: {set(required) - set(df.columns)}")
@@ -417,7 +417,7 @@ class DIAL2(RiskModel):
                     v_chol = (data["total_cholesterol"] - 5.1) / 1.1
                     v_hdl = (data["hdl_cholesterol"] - 1.3) / 0.4
                     v_hba1c = (data["hba1c"] - 55) / 16
-                    v_onset = (data["age_diabetes_diagnosis"] - 58) / 12
+                    v_onset = (data["diabetes_age"] - 58) / 12
                     v_smk = data["smoking"].astype(float)
                     v_age_int = (current_age_vec - 63) / 12
                     
