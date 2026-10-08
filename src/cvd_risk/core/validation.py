@@ -68,6 +68,12 @@ class PatientData(BaseModel):
     hdl_cholesterol: float = Field(
         ..., ge=0.3, le=5.0, description="HDL cholesterol in mmol/L"
     )
+    triglycerides: Optional[float] = Field(
+        default=None, ge=0.3, le=10.0, description="Triglycerides in mmol/L"
+    )
+    ldl_cholesterol: Optional[float] = Field(
+        default=None, ge=0.3, le=10.0, description="LDL cholesterol in mmol/L"
+    )
     smoking: bool = Field(..., description="Current smoking status")
     region: Optional[str] = Field(
         default=None, description="CVD risk region (SCORE2: low, moderate, high, very_high; WHO: epidemiological subregions)"
