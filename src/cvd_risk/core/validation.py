@@ -78,6 +78,12 @@ class PatientData(BaseModel):
     region: Optional[str] = Field(
         default=None, description="CVD risk region (SCORE2: low, moderate, high, very_high; WHO: epidemiological subregions)"
     )
+    sdi: Optional[int] = Field(
+        default=None, description="Social deprivation index (SDI) tertile, 0 = unknown,  1 = Affluent / Well-Resourced, 2 = Moderate / Intermediate, 3 = Underserved / High-Deprivation"
+    )
+    us_zip_code: Optional[int] = Field(
+        default=None, description="USA zip code to get the social deprivation index (SDI)"
+    )
     diabetes: Optional[bool] = Field(default=None, description="Diabetes status")
     ethnicity: Optional[
         Literal["white", "south_asian", "black", "chinese", "mixed", "other"]
@@ -161,6 +167,9 @@ class PatientData(BaseModel):
     )
     diabetes_age: Optional[int] = Field(
         default=None, ge=1, le=120, description="Age when diabetes was diagnosed (years)"
+    )
+    hba1c_percent: Optional[float] = Field(
+        default=None, ge=4.5, le=15.0, description="Glycated hemoglobin (HbA1c) in %"
     )
     hba1c: Optional[float] = Field(
         default=None, ge=10.0, le=200.0, description="Glycated hemoglobin (HbA1c) in mmol/mol"

@@ -3,6 +3,14 @@ PREVENT cardiovascular risk model.
 
 The PREVENT equations are the American Heart Association (AHA) 2023
 cardiovascular risk prediction model for Total CVD, ASCVD, and Heart Failure.
+This implementation uses the PREVENT equations from 2026-10-14.
+
+This is a Python implementation based on preventr:
+https://github.com/martingmayer/preventr
+https://cran.r-project.org/web/packages/preventr/index.html
+https://github.com/AHA-DS-Analytics/PREVENT
+
+See preventr for detailed information.
 
 Reference:
     Khan SS, Matsushita K, Yang C, et al. Development and Validation of the
@@ -11,7 +19,9 @@ Reference:
 """
 
 import logging
+import typing
 from typing import Literal, Union
+from pydantic import validate_call
 
 import numpy as np
 import pandas as pd
@@ -19,184 +29,57 @@ import pandas as pd
 from cvd_risk.core.base import RiskModel
 from cvd_risk.core.validation import PatientData, RiskResult
 
-logger = logging.getLogger(__name__)
+from . import prevent_data
 
-# PREVENT sex and outcome-specific coefficients
-_PREVENT_COEFFICIENTS = {
-    'female': {
-        'total_cvd': {
-            'intercept': -3.307728,
-            'age': 0.7939329,
-            'cnhdl': 0.0305239,
-            'chdl': -0.1606857,
-            'csbp': -0.2394003,
-            'csbp2': 0.360078,
-            'diabetes': 0.8667604,
-            'smoker': 0.5360739,
-            'cegfr': 0.6045917,
-            'cegfr2': 0.0433769,
-            'treated_bp': 0.3151672,
-            'statin': -0.1477655,
-            'treated_bp_x_csbp2': -0.0663612,
-            'statin_x_cnhdl': 0.1197879,
-            'age_x_cnhdl': -0.0819715,
-            'age_x_chdl': 0.0306769,
-            'age_x_csbp2': -0.0946348,
-            'age_x_diabetes': -0.27057,
-            'age_x_smoker': -0.078715,
-            'age_x_cegfr': -0.1637806
-        },
-        'ascvd': {
-            'intercept': -3.819975,
-            'age': 0.719883,
-            'cnhdl': 0.1176967,
-            'chdl': -0.151185,
-            'csbp': -0.0835358,
-            'csbp2': 0.3592852,
-            'diabetes': 0.8348585,
-            'smoker': 0.4831078,
-            'cegfr': 0.4864619,
-            'cegfr2': 0.0397779,
-            'treated_bp': 0.2265309,
-            'statin': -0.0592374,
-            'treated_bp_x_csbp2': -0.0395762,
-            'statin_x_cnhdl': 0.0844423,
-            'age_x_cnhdl': -0.0567839,
-            'age_x_chdl': 0.0325692,
-            'age_x_csbp2': -0.1035985,
-            'age_x_diabetes': -0.2417542,
-            'age_x_smoker': -0.0791142,
-            'age_x_cegfr': 0.1671492
-        },
-        'hf': {
-            'intercept': -4.310409,
-            'age': 0.8998235,
-            'cnhdl': -0.0267869,
-            'chdl': -0.0057645,
-            'csbp': 0.1050076,
-            'csbp2': 0.4069038,
-            'diabetes': 0.6161384,
-            'smoker': 0.4088498,
-            'cegfr': 0.3860668,
-            'cegfr2': 0.0326198,
-            'treated_bp': 0.329195,
-            'statin': -0.0728336,
-            'treated_bp_x_csbp2': -0.0795015,
-            'statin_x_cnhdl': 0.1471028,
-            'age_x_cnhdl': -0.0442663,
-            'age_x_chdl': 0.0043961,
-            'age_x_csbp2': -0.1148839,
-            'age_x_diabetes': -0.2265494,
-            'age_x_smoker': -0.0876956,
-            'age_x_cegfr': -0.191264
-        }
-    },
-    'male': {
-        'total_cvd': {
-            'intercept': -3.031168,
-            'age': 0.7688528,
-            'cnhdl': 0.0736174,
-            'chdl': -0.0954431,
-            'csbp': -0.4347345,
-            'csbp2': 0.3362658,
-            'diabetes': 0.7692857,
-            'smoker': 0.4386871,
-            'cegfr': 0.5378979,
-            'cegfr2': 0.0164827,
-            'treated_bp': 0.288879,
-            'statin': -0.1337349,
-            'treated_bp_x_csbp2': -0.0475924,
-            'statin_x_cnhdl': 0.150273,
-            'age_x_cnhdl': -0.0517874,
-            'age_x_chdl': 0.0191169,
-            'age_x_csbp2': -0.1049477,
-            'age_x_diabetes': -0.2251948,
-            'age_x_smoker': -0.0895067,
-            'age_x_cegfr': -0.1543702
-        },
-        'ascvd': {
-            'intercept': -3.500655,
-            'age': 0.7099847,
-            'cnhdl': 0.1658663,
-            'chdl': -0.1144285,
-            'csbp': -0.2837212,
-            'csbp2': 0.3239977,
-            'diabetes': 0.7189597,
-            'smoker': 0.3956973,
-            'cegfr': 0.3690075,
-            'cegfr2': 0.0203619,
-            'treated_bp': 0.2036522,
-            'statin': -0.0865581,
-            'treated_bp_x_csbp2': -0.0322916,
-            'statin_x_cnhdl': 0.114563,
-            'age_x_cnhdl': -0.0300005,
-            'age_x_chdl': 0.0232747,
-            'age_x_csbp2': -0.0927024,
-            'age_x_diabetes': -0.2018525,
-            'age_x_smoker': -0.0970527,
-            'age_x_cegfr': 0.0
-        },
-        'hf': {
-            'intercept': -3.854616,
-            'age': 0.8183041,
-            'cnhdl': 0.0189814,
-            'chdl': -0.0129381,
-            'csbp': -0.0860113,
-            'csbp2': 0.3166839,
-            'diabetes': 0.4807497,
-            'smoker': 0.3613287,
-            'cegfr': 0.3185439,
-            'cegfr2': 0.0224091,
-            'treated_bp': 0.2365961,
-            'statin': -0.0785958,
-            'treated_bp_x_csbp2': -0.0438745,
-            'statin_x_cnhdl': 0.1358586,
-            'age_x_cnhdl': -0.0340834,
-            'age_x_chdl': 0.0062643,
-            'age_x_csbp2': -0.0990374,
-            'age_x_diabetes': -0.1877418,
-            'age_x_smoker': -0.0928904,
-            'age_x_cegfr': -0.1312154
-        }
-    }
-}
+logger = logging.getLogger(__name__)
 
 
 class Prevent(RiskModel):
     """
     PREVENT cardiovascular risk prediction model (AHA 2023).
 
-    Predicts 10-year risk for:
+    Predicts 10-year and 30-year risk for:
     - Total CVD (composite of ASCVD and heart failure)
-    - ASCVD (atherosclerotic cardiovascular disease)
     - Heart Failure
+    - ASCVD (atherosclerotic cardiovascular disease), includes coronary heart disease (CHD) and stroke as defined below
+    - CHD (coronary heart disease, heart attack), includes nonfatal myocardial infarction (MI) and fatal CHD
+    - Stroke
 
-    Valid for ages 30-79.
+    10-year risk valid for ages 30-79.
+    30-year risk valid for ages 30-59.
     """
 
     model_name = "PREVENT"
     model_version = "2023"
-    supported_outcomes = ["total_cvd", "ascvd", "hf"]
+    supported_outcomes = Literal[
+        "total_cvd_10", "ascvd_10", "hf_10", "chd_10", "stroke_10",
+        "total_cvd_30", "ascvd_30", "hf_30", "chd_30", "stroke_30"
+        ]
 
-    def __init__(self, outcome: Literal["total_cvd", "ascvd", "hf"] = "total_cvd") -> None:
-        """
+    @validate_call
+    def __init__(self, outcome: supported_outcomes = "total_cvd_10") -> None:
+        f"""
         Initialize PREVENT model.
 
         Parameters
         ----------
         outcome : str
-            Risk outcome to calculate. One of: "total_cvd", "ascvd", "hf"
+            Risk outcome to calculate. One of: {typing.get_args(self.supported_outcomes)}
         """
         super().__init__()
-        if outcome not in self.supported_outcomes:
-            raise ValueError(f"Outcome must be one of {self.supported_outcomes}")
         self.outcome = outcome
+        self._debug = False
 
     def validate_input(self, patient: PatientData) -> None:
         super().validate_input(patient)
-        if patient.age < 30 or patient.age > 79:
+        if self.outcome.endswith("_10") and (patient.age < 30 or patient.age > 79):
             logger.warning(
-                f"Age {patient.age} outside optimal range [30, 79]. "
+                f"Age {patient.age} outside optimal range [30, 79] for {self.outcome}. "
+                "PREVENT accuracy may be reduced."
+            )
+        if self.outcome.endswith("_30") and (patient.age < 30 or patient.age > 59):
+            logger.warning(
+                f"Age {patient.age} outside optimal range [30, 59] for {self.outcome}. "
                 "PREVENT accuracy may be reduced."
             )
         if patient.egfr is None:
@@ -205,12 +88,16 @@ class Prevent(RiskModel):
             raise ValueError("Antihypertensive medication status is required for PREVENT calculations")
         if patient.statin_use is None:
             raise ValueError("Statin use status is required for PREVENT calculations")
+        if patient.bmi is None:
+            raise ValueError("BMI is required for PREVENT calculations")
 
-    def _transform_variables(self, age: Union[float, np.ndarray],
-                           total_chol: Union[float, np.ndarray],
-                           hdl_chol: Union[float, np.ndarray],
-                           sbp: Union[float, np.ndarray],
-                           egfr: Union[float, np.ndarray]) -> dict:
+    def _transform_variables(self,
+                             age: Union[float, np.ndarray],
+                             total_chol_mmol: Union[float, np.ndarray],
+                             hdl_chol_mmol: Union[float, np.ndarray],
+                             sbp: Union[float, np.ndarray],
+                             egfr: Union[float, np.ndarray],
+                             bmi: Union[float, np.ndarray]) -> dict:
         """
         Transform input variables according to PREVENT methodology.
 
@@ -218,33 +105,31 @@ class Prevent(RiskModel):
         ----------
         age : float or array
             Age in years
-        total_chol : float or array
+        total_chol_mmol : float or array
             Total cholesterol in mmol/L (converted to mg/dL internally)
-        hdl_chol : float or array
+        hdl_chol_mmol : float or array
             HDL cholesterol in mmol/L (converted to mg/dL internally)
         sbp : float or array
             Systolic blood pressure in mmHg
         egfr : float or array
             eGFR in mL/min/1.73m2
+        bmi : float or array
+            BMI in kg/m2
 
         Returns
         -------
         dict
             Transformed variables
         """
-        # Convert from mmol/L to mg/dL for PREVENT calculations
-        tc_mgdl = total_chol * 38.67
-        hdl_mgdl = hdl_chol * 38.67
 
-        # Unit conversion (mg/dL to mmol/L) - PREVENT expects mmol/L internally
-        tc_mmol = tc_mgdl / 38.67
-        hdl_mmol = hdl_mgdl / 38.67
-        non_hdl_mmol = tc_mmol - hdl_mmol
+        # PREVENT expects mmol/L internally
+        non_hdl_mmol = total_chol_mmol - hdl_chol_mmol
 
         # Transformations
         t_age = (age - 55.0) / 10.0
+        t_age2 = t_age ** 2
         t_cnhdl = non_hdl_mmol - 3.5
-        t_chdl = (hdl_mmol - 1.3) / 0.3
+        t_chdl = (hdl_chol_mmol - 1.3) / 0.3
 
         # SBP splines
         t_csbp = (np.minimum(sbp, 110.0) - 110.0) / 20.0
@@ -254,14 +139,20 @@ class Prevent(RiskModel):
         t_cegfr = (np.minimum(egfr, 60.0) - 60.0) / -15.0
         t_cegfr2 = (np.maximum(egfr, 60.0) - 90.0) / -15.0
 
+        t_cbmi = (np.minimum(bmi, 30.0) - 25.0) / 5.0
+        t_cbmi2 = (np.maximum(bmi, 30.0) - 30.0) / 5.0
+
         return {
             't_age': t_age,
+            't_age2': t_age2,
             't_cnhdl': t_cnhdl,
             't_chdl': t_chdl,
             't_csbp': t_csbp,
             't_csbp2': t_csbp2,
             't_cegfr': t_cegfr,
-            't_cegfr2': t_cegfr2
+            't_cegfr2': t_cegfr2,
+            't_cbmi': t_cbmi,
+            't_cbmi2': t_cbmi2,
         }
 
     def _get_risk_thresholds(self, age: Union[int, float, np.ndarray]) -> tuple:
@@ -312,53 +203,108 @@ class Prevent(RiskModel):
         """
         self.validate_input(patient)
 
-        # Get coefficients
-        sex = patient.sex.lower()
-        coeffs = _PREVENT_COEFFICIENTS[sex][self.outcome]
-
         # Transform variables
         tf = self._transform_variables(
             patient.age, patient.total_cholesterol, patient.hdl_cholesterol,
-            patient.systolic_bp, patient.egfr
+            patient.systolic_bp, patient.egfr, patient.bmi
         )
 
+        t_sid_group = 0
+        if patient.sdi and 1 <= patient.sdi <= 3:
+            t_sid_group = patient.sdi
+        elif patient.us_zip_code:
+            i = patient.us_zip_code
+            if i > 0 and i < len(prevent_data.SDI_GROUP):
+                t_sid_group = prevent_data.SDI_GROUP[i]
+
+        # Get coefficients
+
+        sex = patient.sex.lower()
+
+        c = 0
+        if patient.hba1c_percent:
+            c += 1
+        if patient.acr:
+            c += 1
+        if t_sid_group:
+            c += 1
+
+        model = None
+        if c > 1:
+            model = 'full'
+        elif c == 0:
+            model = 'base'
+        elif patient.hba1c_percent:
+            model = 'hba1c'
+        elif patient.acr:
+            model = 'uacr'
+        elif t_sid_group:
+            model = 'sdi'
+        coeffs = prevent_data.COEFFS[f'{model}_{sex}_{self.outcome}']
+
         # Indicator variables
-        i_db = float(patient.diabetes or False)
-        i_smk = float(patient.smoking)
-        i_htn = float(patient.antihypertensive or False)
-        i_statin = float(patient.statin_use or False)
+        i_db = float(patient.diabetes or 0.0)
+        i_smk = float(patient.smoking or 0.0)
+        i_htn = float(patient.antihypertensive or 0.0)
+        i_statin = float(patient.statin_use or 0.0)
+
+        if t_sid_group:
+            if t_sid_group == 1:
+                sdi_term = 0.0
+            elif t_sid_group == 2:
+                sdi_term = coeffs[24]
+            elif t_sid_group == 3:
+                sdi_term = coeffs[25]
+        else:
+            sdi_term = coeffs[26]
+
+        if patient.acr:
+            uacr_term = np.log(patient.acr) * coeffs[27]
+        else:
+            uacr_term = coeffs[28]
+
+        if patient.hba1c_percent:
+            if patient.diabetes:
+                hba1c_term = (patient.hba1c_percent - 5.3) * coeffs[30]
+            else:
+                hba1c_term = (patient.hba1c_percent - 5.3) * coeffs[29]
+        else:
+            hba1c_term = coeffs[31]
 
         # Calculate log-odds
-        log_odds = coeffs['intercept']
-
-        # Main effects
-        log_odds += coeffs['age'] * tf['t_age']
-        log_odds += coeffs['cnhdl'] * tf['t_cnhdl']
-        log_odds += coeffs['chdl'] * tf['t_chdl']
-        log_odds += coeffs['csbp'] * tf['t_csbp']
-        log_odds += coeffs['csbp2'] * tf['t_csbp2']
-        log_odds += coeffs['diabetes'] * i_db
-        log_odds += coeffs['smoker'] * i_smk
-        log_odds += coeffs['cegfr'] * tf['t_cegfr']
-        log_odds += coeffs['cegfr2'] * tf['t_cegfr2']
-        log_odds += coeffs['treated_bp'] * i_htn
-        log_odds += coeffs['statin'] * i_statin
-
-        # Interactions
-        log_odds += coeffs['treated_bp_x_csbp2'] * (i_htn * tf['t_csbp2'])
-        log_odds += coeffs['statin_x_cnhdl'] * (i_statin * tf['t_cnhdl'])
-
-        # Age interactions
-        log_odds += coeffs['age_x_cnhdl'] * (tf['t_age'] * tf['t_cnhdl'])
-        log_odds += coeffs['age_x_chdl'] * (tf['t_age'] * tf['t_chdl'])
-        log_odds += coeffs['age_x_csbp2'] * (tf['t_age'] * tf['t_csbp2'])
-        log_odds += coeffs['age_x_diabetes'] * (tf['t_age'] * i_db)
-        log_odds += coeffs['age_x_smoker'] * (tf['t_age'] * i_smk)
-        log_odds += coeffs['age_x_cegfr'] * (tf['t_age'] * tf['t_cegfr'])
+        log_odds = \
+            coeffs[0] + \
+            coeffs[1] * tf['t_age'] + \
+            coeffs[2] * tf['t_age'] ** 2 + \
+            coeffs[3] * tf['t_cnhdl'] + \
+            coeffs[4] * tf['t_chdl'] + \
+            coeffs[5] * tf['t_csbp'] + \
+            coeffs[6] * tf['t_csbp2'] + \
+            coeffs[7] * i_db + \
+            coeffs[8] * i_smk + \
+            coeffs[9] * tf['t_cbmi'] + \
+            coeffs[10] * tf['t_cbmi2'] + \
+            coeffs[11] * tf['t_cegfr'] + \
+            coeffs[12] * tf['t_cegfr2'] + \
+            coeffs[13] * i_htn + \
+            coeffs[14] * i_statin + \
+            coeffs[15] * i_htn * tf['t_csbp2'] + \
+            coeffs[16] * i_statin * tf['t_cnhdl'] + \
+            coeffs[17] * tf['t_age'] * tf['t_cnhdl'] + \
+            coeffs[18] * tf['t_age'] * tf['t_chdl'] + \
+            coeffs[19] * tf['t_age'] * tf['t_csbp2'] + \
+            coeffs[20] * tf['t_age'] * i_db + \
+            coeffs[21] * tf['t_age'] * i_smk + \
+            coeffs[22] * tf['t_age'] * tf['t_cbmi2'] + \
+            coeffs[23] * tf['t_age'] * tf['t_cegfr'] + \
+            sdi_term + \
+            uacr_term + \
+            hba1c_term
 
         # Convert to risk percentage
-        risk_percent = np.exp(log_odds) / (1 + np.exp(log_odds)) * 100.0
-        risk_percent = np.clip(risk_percent, 0.0, 100.0)
+        e = np.exp(log_odds)
+        risk_percent = e/(1+e) * 100.0
+        risk_percent = round(np.clip(risk_percent, 0.0, 100.0), 16 if self._debug else 2)
 
         # Categorize risk
         moderate_cut, high_cut = self._get_risk_thresholds(patient.age)
@@ -371,21 +317,33 @@ class Prevent(RiskModel):
             category = "high"
 
         outcome_name = {
-            "total_cvd": "Total CVD",
-            "ascvd": "ASCVD",
-            "hf": "Heart Failure"
+            "total_cvd_10": "Total CVD 10-year",
+            "ascvd_10": "ASCVD 10-year",
+            "hf_10": "Heart Failure 10-year",
+            "chd_10": "Heart Attack 10-year",
+            "stroke_10": "Stroke 10-year",
+            "total_cvd_30": "Total CVD 30-year",
+            "ascvd_30": "ASCVD 30-year",
+            "hf_30": "Heart Failure 30-year",
+            "chd_30": "Heart Attack 30-year",
+            "stroke_30": "Stroke 30-year",
         }[self.outcome]
 
+        calculation_metadata={
+            "outcome": self.outcome,
+            "outcome_name": outcome_name,
+        }
+        if self._debug:
+            calculation_metadata["dbgA"] = sdi_term
+            calculation_metadata["dbgB"] = uacr_term
+            calculation_metadata["dbgC"] = hba1c_term
+
         return RiskResult(
-            risk_score=float(risk_percent),
+            risk_score=risk_percent,
             risk_category=category,
             model_name=self.model_name,
             model_version=self.model_version,
-            calculation_metadata={
-                "outcome": self.outcome,
-                "outcome_name": outcome_name,
-                "log_odds": float(log_odds)
-            }
+            calculation_metadata=calculation_metadata
         )
 
     def calculate_batch(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -414,6 +372,24 @@ class Prevent(RiskModel):
         results["risk_category"] = "unknown"
         results["model_name"] = self.model_name
         results["outcome"] = self.outcome
+        results["model"] = "n/a"
+
+        # handle zip codes
+        if "sdi" not in results.columns:
+            results["sdi"] = None
+        if "us_zip_code" in results.columns:
+            mapz_arr = np.array(prevent_data.SDI_GROUP)
+            mask = results["sdi"].isna() & results["us_zip_code"].notna()
+            results.loc[mask, "sdi"] = mapz_arr[results.loc[mask, "us_zip_code"].astype(int)]
+
+        # handle correct model
+        results["model_score_hba1c"] = "hba1c_percent" in results.columns and results["hba1c_percent"] > 0
+        results["model_score_acr"] = "acr" in results.columns and results["acr"] > 0
+        results["model_score_sdi"] = "sdi" in results.columns and results["sdi"] > 0
+        results["model_score"] = \
+            (results["model_score_hba1c"]).astype(int) + \
+            (results["model_score_acr"]).astype(int) + \
+            (results["model_score_sdi"]).astype(int)
 
         # Process by sex for efficiency
         for sex in ["male", "female"]:
@@ -421,49 +397,111 @@ class Prevent(RiskModel):
             if not sex_mask.any():
                 continue
 
-            coeffs = _PREVENT_COEFFICIENTS[sex][self.outcome]
-            data = results[sex_mask]
+            # Sub-loop by model
+            for model in ["full", "base", "hba1c", "uacr", "sdi"]:
+                if model == "full":
+                    model_mask = sex_mask & (results["model_score"] > 1)
+                elif model == "base":
+                    model_mask = sex_mask & (results["model_score"] == 0)
+                elif model == "hba1c":
+                    model_mask = sex_mask & results["model_score_hba1c"] & (results["model_score"] == 1)
+                elif model == "uacr":
+                    model_mask = sex_mask & results["model_score_acr"] & (results["model_score"] == 1)
+                elif model == "sdi":
+                    model_mask = sex_mask & results["model_score_sdi"] & (results["model_score"] == 1)
+                if not model_mask.any():
+                    continue
+                results.loc[model_mask, "model"] = model
 
-            # Vectorized transformations (inputs are in mmol/L, converted internally)
-            tf = self._transform_variables(
-                data["age"].values, data["total_cholesterol"].values,
-                data["hdl_cholesterol"].values, data["systolic_bp"].values,
-                data["egfr"].values
-            )
+                coeffs = prevent_data.COEFFS[f"{model}_{sex}_{self.outcome}"]
+                data = results[model_mask]
 
-            # Indicator variables
-            i_db = data["diabetes"].fillna(False).astype(float).values
-            i_smk = data["smoking"].astype(float).values
-            i_htn = data["antihypertensive"].fillna(False).astype(float).values
-            i_statin = data["statin_use"].fillna(False).astype(float).values
+                # Vectorized transformations (inputs are in mmol/L, converted internally)
+                tf = self._transform_variables(
+                    data["age"].values, data["total_cholesterol"].values,
+                    data["hdl_cholesterol"].values, data["systolic_bp"].values,
+                    data["egfr"].values, data["bmi"].values
+                )
 
-            # Vectorized log-odds calculation
-            log_odds = coeffs['intercept'] + \
-                coeffs['age'] * tf['t_age'] + \
-                coeffs['cnhdl'] * tf['t_cnhdl'] + \
-                coeffs['chdl'] * tf['t_chdl'] + \
-                coeffs['csbp'] * tf['t_csbp'] + \
-                coeffs['csbp2'] * tf['t_csbp2'] + \
-                coeffs['diabetes'] * i_db + \
-                coeffs['smoker'] * i_smk + \
-                coeffs['cegfr'] * tf['t_cegfr'] + \
-                coeffs['cegfr2'] * tf['t_cegfr2'] + \
-                coeffs['treated_bp'] * i_htn + \
-                coeffs['statin'] * i_statin + \
-                coeffs['treated_bp_x_csbp2'] * (i_htn * tf['t_csbp2']) + \
-                coeffs['statin_x_cnhdl'] * (i_statin * tf['t_cnhdl']) + \
-                coeffs['age_x_cnhdl'] * (tf['t_age'] * tf['t_cnhdl']) + \
-                coeffs['age_x_chdl'] * (tf['t_age'] * tf['t_chdl']) + \
-                coeffs['age_x_csbp2'] * (tf['t_age'] * tf['t_csbp2']) + \
-                coeffs['age_x_diabetes'] * (tf['t_age'] * i_db) + \
-                coeffs['age_x_smoker'] * (tf['t_age'] * i_smk) + \
-                coeffs['age_x_cegfr'] * (tf['t_age'] * tf['t_cegfr'])
+                # Indicator variables
+                i_db = data["diabetes"].fillna(False).astype(float).values
+                i_smk = data["smoking"].fillna(False).astype(float).values
+                i_htn = data["antihypertensive"].fillna(False).astype(float).values
+                i_statin = data["statin_use"].fillna(False).astype(float).values
 
-            # Convert to risk percentage
-            risk_percent = np.exp(log_odds) / (1 + np.exp(log_odds)) * 100.0
-            risk_percent = np.clip(risk_percent, 0.0, 100.0)
+                # Add SDI
+                if coeffs[24] and 'sdi' in results.columns:
+                    cond_tier_1 = data['sdi'].notna() & (data['sdi'] == 1)
+                    cond_tier_2 = data['sdi'].notna() & (data['sdi'] == 2)
+                    cond_tier_3 = data['sdi'].notna() & (data['sdi'] == 3)
+                    conditions = [cond_tier_1, cond_tier_2, cond_tier_3]
+                    choices = [0, coeffs[24], coeffs[25]]
+                    sdi_term = np.select(conditions, choices, default=coeffs[26])
+                else:
+                    sdi_term = coeffs[26]
 
-            results.loc[sex_mask, "risk_score"] = risk_percent
+                # Add uACR
+                if 'acr' in results.columns:
+                    acr_array = pd.to_numeric(data["acr"], errors='coerce').to_numpy(dtype=float) # convert to a native float array (None automatically becomes np.nan)
+                    uacr_term = np.full(acr_array.shape, coeffs[28], dtype=float)
+                    valid_mask = acr_array > 0
+                    uacr_term[valid_mask] = np.log(acr_array[valid_mask]) * coeffs[27]
+                else:
+                    uacr_term = coeffs[28]
+
+                # Add HbA1c
+                if 'hba1c_percent' in results.columns:
+                    hba1c_array = pd.to_numeric(data["hba1c_percent"], errors='coerce').to_numpy(dtype=float) # convert to a native float array (None automatically becomes np.nan)
+                    cond_no_diabetes = (hba1c_array > 0) & ~data['diabetes']
+                    cond_diabetes = (hba1c_array > 0) & data['diabetes']
+                    choices = [
+                        (hba1c_array - 5.3) * coeffs[29],
+                        (hba1c_array - 5.3) * coeffs[30]
+                    ]
+                    hba1c_term = np.select([cond_no_diabetes, cond_diabetes], choices, default=coeffs[31])
+                else:
+                    hba1c_term = coeffs[31]
+
+                # Vectorized log-odds calculation
+                log_odds = \
+                    coeffs[0] + \
+                    coeffs[1] * tf['t_age'] + \
+                    coeffs[2] * tf['t_age'] ** 2 + \
+                    coeffs[3] * tf['t_cnhdl'] + \
+                    coeffs[4] * tf['t_chdl'] + \
+                    coeffs[5] * tf['t_csbp'] + \
+                    coeffs[6] * tf['t_csbp2'] + \
+                    coeffs[7] * i_db + \
+                    coeffs[8] * i_smk + \
+                    coeffs[9] * tf['t_cbmi'] + \
+                    coeffs[10] * tf['t_cbmi2'] + \
+                    coeffs[11] * tf['t_cegfr'] + \
+                    coeffs[12] * tf['t_cegfr2'] + \
+                    coeffs[13] * i_htn + \
+                    coeffs[14] * i_statin + \
+                    coeffs[15] * (i_htn * tf['t_csbp2']) + \
+                    coeffs[16] * (i_statin * tf['t_cnhdl']) + \
+                    coeffs[17] * (tf['t_age'] * tf['t_cnhdl']) + \
+                    coeffs[18] * (tf['t_age'] * tf['t_chdl']) + \
+                    coeffs[19] * (tf['t_age'] * tf['t_csbp2']) + \
+                    coeffs[20] * (tf['t_age'] * i_db) + \
+                    coeffs[21] * (tf['t_age'] * i_smk) + \
+                    coeffs[22] * (tf['t_age'] * tf['t_cbmi2']) + \
+                    coeffs[23] * (tf['t_age'] * tf['t_cegfr']) + \
+                    sdi_term + \
+                    uacr_term + \
+                    hba1c_term
+
+                # Convert to risk percentage
+                e = np.exp(log_odds)
+                risk_percent = e/(1+e) * 100.0
+                risk_percent = np.round(np.clip(risk_percent, 0.0, 100.0), 16 if self._debug else 2)
+
+                results.loc[model_mask, "risk_score"] = risk_percent
+                if self._debug:
+                    results.loc[model_mask, "dbgA"] = sdi_term
+                    results.loc[model_mask, "dbgB"] = uacr_term
+                    results.loc[model_mask, "dbgC"] = hba1c_term
 
         # Vectorized categorization
         moderate_cuts, high_cuts = self._get_risk_thresholds(results["age"].values)
@@ -474,8 +512,6 @@ class Prevent(RiskModel):
             results["risk_score"] >= high_cuts
         ]
         choices = ["low", "moderate", "high"]
-
         results["risk_category"] = np.select(conditions, choices, default="unknown")
 
         return results
-

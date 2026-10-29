@@ -1,6 +1,7 @@
 # PREVENT (Predicting Risk of Cardiovascular Disease Events)
 
 PREVENT is the American Heart Association's comprehensive cardiovascular risk prediction model for primary prevention, replacing the previous ASCVD Pooled Cohort Equations. It incorporates additional risk factors and provides more precise risk estimates.
+This implementation uses the PREVENT equations from 2026-10-14.
 
 ## Overview
 
