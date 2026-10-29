@@ -1,6 +1,7 @@
 # PREVENT (Predicting Risk of Cardiovascular Disease Events)
 
 PREVENT is the American Heart Association's comprehensive cardiovascular risk prediction model for primary prevention, replacing the previous ASCVD Pooled Cohort Equations. It incorporates additional risk factors and provides more precise risk estimates.
+This implementation uses the PREVENT equations from 2026-10-14.
 
 ## Overview
 
@@ -8,21 +9,24 @@ PREVENT (Predicting Risk of cardiovascular disease EVENTs) was developed to impr
 
 ## Risk Factors
 
-### Traditional Risk Factors
+### Mandatory Risk Factors
 - **Age**: Years
 - **Sex**: Male/Female
+- **Total Cholesterol**: mmol/L
+- **HDL Cholesterol**: mmol/L
 - **Systolic Blood Pressure**: mmHg
-- **Total Cholesterol**: mg/dL
-- **HDL Cholesterol**: mg/dL
+- **Diabetes**: Has currently diabetes
 - **Smoking Status**: Current smoker
+- **BMI**: Body Mass Index in kg/m²
+- **eGFR**: Estimated glomerular filtration in ml/min/1.73m²
+- **Antihypertensive**: Current antihypertensive medication use
+- **Statin**: Current statin use (True/False/0/1)
 
-### Additional Risk Factors
-- **Diabetes**: Type 1 or Type 2
-- **Race/Ethnicity**: For calibration
-- **Chronic Kidney Disease**: eGFR and albuminuria
-- **Family History**: Premature CVD
-- **Inflammatory Biomarkers**: hsCRP, Lp(a)
-- **Risk-Enhancing Factors**: Social deprivation, etc.
+### Optional Risk Factors
+- **USA ZIP code**: USA zip code. Used to estimate the Social Deprivation Index (SDI). Ignored if SDI is specified.
+- **SDI**: Social Deprivation Index tertile: 1=low, 2=medium, 3=high. Overrides USA zip code if valid (1-3).
+- **uACR**: Urine albumin-to-creatinine ratio in mg/g, from 0.1-25000.
+- **HbA1c**: Glycated hemoglobin in %, from 4.5-15.
 
 ## Mathematical Formulation
 
@@ -57,5 +61,5 @@ DOI: [10.1161/CIRCULATIONAHA.123.067626](https://doi.org/10.1161/CIRCULATIONAHA.
 - Incorporates CKM (Cardiovascular-Kidney-Metabolic) health
 - Includes novel biomarkers and risk enhancers
 - Provides both 10-year and 30-year risk estimates
-- This is a placeholder - full implementation pending
 - Represents current state-of-the-art in CVD risk prediction
+- Based on R implementation (preventr) from Dr. Martin Mayer
