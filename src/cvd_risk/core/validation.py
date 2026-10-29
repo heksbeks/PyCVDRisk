@@ -16,7 +16,7 @@ class PatientData(BaseModel):
 
     Attributes
     ----------
-    age : int
+    age : float
         Patient age in years. Typical range: 40-100 years.
     sex : Literal["male", "female"]
         Patient biological sex.
@@ -59,7 +59,7 @@ class PatientData(BaseModel):
     ... )
     """
 
-    age: int = Field(..., ge=18, le=120, description="Patient age in years")
+    age: float = Field(..., ge=18, le=120, description="Patient age in years")
     sex: Literal["male", "female"] = Field(..., description="Patient biological sex")
     systolic_bp: float = Field(..., ge=50.0, le=250.0, description="Systolic BP in mmHg")
     total_cholesterol: float = Field(

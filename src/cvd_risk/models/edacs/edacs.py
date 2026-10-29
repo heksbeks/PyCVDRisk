@@ -61,13 +61,13 @@ class EDACS(RiskModel):
         if missing_fields:
             raise ValueError(f"EDACS requires the following fields: {missing_fields}")
 
-    def _get_age_score(self, age: int) -> int:
+    def _get_age_score(self, age: float) -> int:
         """
         Calculate age component of EDACS score.
 
         Parameters
         ----------
-        age : int
+        age : float
             Patient age in years
 
         Returns
@@ -114,7 +114,7 @@ class EDACS(RiskModel):
         """
         return 6 if sex.lower() == "male" else 0
 
-    def _get_risk_factors_score(self, age: int, diabetes: bool, smoking: bool,
+    def _get_risk_factors_score(self, age: float, diabetes: bool, smoking: bool,
                                hypertension: bool, hyperlipidaemia: bool,
                                family_history: bool) -> int:
         """
@@ -125,7 +125,7 @@ class EDACS(RiskModel):
 
         Parameters
         ----------
-        age : int
+        age : float
             Patient age
         diabetes : bool
             Diabetes status

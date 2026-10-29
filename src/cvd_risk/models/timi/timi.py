@@ -78,7 +78,7 @@ class TIMI(RiskModel):
         if patient.troponin_level is not None and patient.troponin_level < 0:
             raise ValueError("Troponin level cannot be negative")
 
-    def _calculate_age_score(self, age: int) -> int:
+    def _calculate_age_score(self, age: float) -> int:
         """Calculate age component of TIMI score."""
         if age < 65:
             return 0

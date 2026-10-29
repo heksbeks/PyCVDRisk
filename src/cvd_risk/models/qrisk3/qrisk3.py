@@ -138,7 +138,7 @@ class QRISK3(RiskModel):
 
     Parameters
     ----------
-    age : int
+    age : float
         Age in years (25-84 for optimal performance).
     sex : Literal["male", "female"]
         Biological sex.

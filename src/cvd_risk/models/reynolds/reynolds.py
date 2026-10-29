@@ -61,7 +61,7 @@ class Reynolds(RiskModel):
 
     Parameters
     ----------
-    age : int
+    age : float
         Age in years (45-80 for optimal performance).
     sex : Literal["male", "female"]
         Biological sex.

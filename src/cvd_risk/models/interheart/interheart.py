@@ -86,7 +86,7 @@ class INTERHEART(RiskModel):
 
     Parameters
     ----------
-    age : int
+    age : float
         Age in years.
     sex : Literal["male", "female"]
         Biological sex.

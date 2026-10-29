@@ -151,7 +151,7 @@ class HEART(RiskModel):
         else:
             return 1  # Any other abnormality counts as abnormal repolarization
 
-    def _calculate_age_score(self, age: int) -> int:
+    def _calculate_age_score(self, age: float) -> int:
         """
         Calculate Age component score.
 
@@ -162,7 +162,7 @@ class HEART(RiskModel):
 
         Parameters
         ----------
-        age : int
+        age : float
             Patient age in years
 
         Returns

@@ -66,7 +66,7 @@ class PREDICT(RiskModel):
 
     Parameters
     ----------
-    age : int
+    age : float
         Age in years (30-74 for optimal performance).
     sex : Literal["male", "female"]
         Biological sex.

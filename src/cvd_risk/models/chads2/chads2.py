@@ -43,7 +43,7 @@ class CHADS2(RiskModel):
 
     Parameters
     ----------
-    age : int
+    age : float
         Age in years.
     congestive_heart_failure : bool
         History of congestive heart failure.
@@ -104,7 +104,7 @@ class CHADS2(RiskModel):
                 f"Patient is missing: {missing_fields}"
             )
 
-    def _calculate_age_score(self, age: int) -> int:
+    def _calculate_age_score(self, age: float) -> int:
         """Calculate age component (≥75 years = 1 point)."""
         return 1 if age >= 75 else 0
 

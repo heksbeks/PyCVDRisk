@@ -80,7 +80,7 @@ class DAD_Score(RiskModel):
 
     Parameters
     ----------
-    age : int
+    age : float
         Age in years.
     sex : Literal["male", "female"]
         Biological sex.

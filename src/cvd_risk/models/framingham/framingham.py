@@ -65,7 +65,7 @@ class Framingham(RiskModel):
 
     Parameters
     ----------
-    age : int
+    age : float
         Age in years (30-79 for optimal performance, validated up to 74).
     sex : Literal["male", "female"]
         Biological sex.

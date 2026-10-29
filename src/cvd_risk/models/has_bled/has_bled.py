@@ -46,7 +46,7 @@ class HAS_BLED(RiskModel):
 
     Parameters
     ----------
-    age : int
+    age : float
         Age in years.
     hypertension : bool
         Uncontrolled hypertension (SBP >160 mmHg).
@@ -126,7 +126,7 @@ class HAS_BLED(RiskModel):
         """Calculate labile INR component."""
         return 1 if labile_inr else 0
 
-    def _calculate_elderly_score(self, age: int) -> int:
+    def _calculate_elderly_score(self, age: float) -> int:
         """Calculate elderly component (age ≥65)."""
         return 1 if age >= 65 else 0
 

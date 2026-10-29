@@ -48,7 +48,7 @@ class CHA2DS2_VASc(RiskModel):
 
     Parameters
     ----------
-    age : int
+    age : float
         Age in years.
     sex : Literal["male", "female"]
         Biological sex (females get 1 point).

@@ -128,7 +128,7 @@ class GRACE2(RiskModel):
         else:  # >= 200
             return 34.0
 
-    def _calculate_age_points(self, age: int) -> float:
+    def _calculate_age_points(self, age: float) -> float:
         """Calculate points for age."""
         if age < 35:
             return 0.0

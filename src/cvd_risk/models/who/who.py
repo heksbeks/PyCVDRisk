@@ -48,7 +48,7 @@ class WHO(RiskModel):
 
     Parameters
     ----------
-    age : int
+    age : float
         Age in years (18+ for optimal performance).
     sex : Literal["male", "female"]
         Biological sex.
@@ -120,7 +120,7 @@ class WHO(RiskModel):
         except FileNotFoundError:
             raise FileNotFoundError(f"WHO risk data file not found at {data_path}")
 
-    def _discretize_age(self, age: int) -> int:
+    def _discretize_age(self, age: float) -> int:
         """Discretize age according to WHO categories."""
         if age > 17 and age < 50:
             return 40

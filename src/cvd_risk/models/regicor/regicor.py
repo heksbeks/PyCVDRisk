@@ -54,7 +54,7 @@ class REGICOR(RiskModel):
 
     Parameters
     ----------
-    age : int
+    age : float
         Age in years (35-74 for optimal performance).
     sex : Literal["male", "female"]
         Biological sex.

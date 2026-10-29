@@ -200,14 +200,14 @@ class LifeCVD2(RiskModel):
         if patient.diabetes is None:
             raise ValueError("Diabetes status is required for LifeCVD2")
 
-    def _get_linear_predictor(self, age: int, sex: str, sbp: float, tc: float,
+    def _get_linear_predictor(self, age: float, sex: str, sbp: float, tc: float,
                             hdl: float, smoker: bool, diabetes: bool, endpoint: str) -> float:
         """
         Calculate the linear predictor for CVD or non-CVD mortality.
 
         Parameters
         ----------
-        age : int
+        age : float
             Patient age in years
         sex : str
             'male' or 'female'
@@ -308,14 +308,14 @@ class LifeCVD2(RiskModel):
 
         return new_survival
 
-    def _compute_lifetime_risk(self, age: int, sex: str, region: str, sbp: float,
+    def _compute_lifetime_risk(self, age: float, sex: str, region: str, sbp: float,
                              tc: float, hdl: float, smoker: bool, diabetes: bool) -> dict:
         """
         Compute lifetime CVD risk metrics.
 
         Parameters
         ----------
-        age : int
+        age : float
             Starting age
         sex : str
             'male' or 'female'
@@ -348,7 +348,7 @@ class LifeCVD2(RiskModel):
         ages = []
 
         # Year-by-year calculation
-        for t_age in range(current_age, 101):
+        for t_age in range(int(current_age), 101):
             # Get baseline survival for this age interval
             if t_age not in self._baseline_survival:
                 break  # Beyond model range
