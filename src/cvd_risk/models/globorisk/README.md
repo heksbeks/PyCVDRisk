@@ -31,6 +31,7 @@ ln(odds) = β₀ + β₁×age + β₂×sex + β₃×TC + β₄×HDL + β₅×SBP
 - **HDL Cholesterol**: mmol/L
 - **Smoking Status**: Current smoker (yes/no)
 - **Diabetes**: Presence of diabetes (yes/no)
+- **BMI**: Body Mass Index in kg/m²
 
 ## Coefficients
 

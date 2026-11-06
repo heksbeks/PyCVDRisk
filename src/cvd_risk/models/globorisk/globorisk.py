@@ -345,14 +345,25 @@ class Globorisk(RiskModel):
             available_years = list(_GLOBORISK_DATA['cvd_rates'][country][sex_numeric][cvd_type].keys())
             year = max(available_years) if available_years else 2020
 
-        # Get age-specific rates
-        if age not in _GLOBORISK_DATA['cvd_rates'][country][sex_numeric][cvd_type][year]:
-            # Find closest available age
-            available_ages = list(_GLOBORISK_DATA['cvd_rates'][country][sex_numeric][cvd_type][year].keys())
-            age = min(available_ages, key=lambda x: abs(x - age))  # Closest age
-            logger.warning(f"Age {patient.age} not found, using age {age}")
-
-        return _GLOBORISK_DATA['cvd_rates'][country][sex_numeric][cvd_type][year][age]
+        # Get age-specific rates, linear interpolate between closest
+        d = _GLOBORISK_DATA['cvd_rates'][country][sex_numeric][cvd_type][year]
+        available_ages = sorted(d.keys())
+        if age <= available_ages[0]:
+            r = d[available_ages[0]]
+        elif age >= available_ages[-1]:
+            r = d[available_ages[-1]]
+        else:
+            for i1 in range(len(available_ages)):
+                if age >= available_ages[i1]:
+                    break
+            i2 = i1+1
+            age1 = available_ages[i1]
+            age2 = available_ages[i2]
+            f = (age - age1)/(age2 - age1)
+            r1 = d[age1]
+            r2 = d[age2]
+            r = {k: (1-f)*r1[k] + f*r2[k] for k in r1.keys()}
+        return r
 
     def _get_risk_factor_means(self, patient: PatientData) -> dict:
         """Get risk factor means for centering."""
